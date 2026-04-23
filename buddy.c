@@ -32,6 +32,8 @@ static free_block_t *free_list_tails[MAX_RANK + 1] = {NULL};
 static int free_counts[MAX_RANK + 1] = {0};
 
 static void add_to_free_list(void *block, int rank) {
+    if (!block || rank < 1 || rank > MAX_RANK) return;
+
     free_block_t *fb = (free_block_t *)block;
     fb->next = NULL;
 
@@ -39,14 +41,24 @@ static void add_to_free_list(void *block, int rank) {
         free_lists[rank] = fb;
         free_list_tails[rank] = fb;
     } else {
-        free_list_tails[rank]->next = fb;
+        if (free_list_tails[rank]) {
+            free_list_tails[rank]->next = fb;
+        } else {
+            // Tail is NULL but list is not empty - fix the inconsistency
+            free_block_t *curr = free_lists[rank];
+            while (curr->next) {
+                curr = curr->next;
+            }
+            curr->next = fb;
+        }
         free_list_tails[rank] = fb;
     }
     free_counts[rank]++;
 }
 
 static void *remove_from_free_list(int rank) {
-    if (!free_lists[rank]) return NULL;
+    if (rank < 1 || rank > MAX_RANK || !free_lists[rank]) return NULL;
+
     free_block_t *fb = free_lists[rank];
     free_lists[rank] = fb->next;
 
