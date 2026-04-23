@@ -1,0 +1,10 @@
+CMakeFiles/
+CMakeCache.txt
+test
+simple_test
+phase_test
+debug
+*.o
+*.a
+*.so
+code
