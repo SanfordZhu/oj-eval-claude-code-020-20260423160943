@@ -115,12 +115,12 @@ void *alloc_pages(int rank) {
     return result ? result : ERR_PTR(-ENOSPC);
 }
 
-void *return_pages(void *p) {
-    if (!p || !base_addr) return ERR_PTR(-EINVAL);
+int return_pages(void *p) {
+    if (!p || !base_addr) return -EINVAL;
 
     // Calculate the rank of this block
     int rank = query_ranks(p);
-    if (rank < 1 || rank > MAX_RANK) return ERR_PTR(-EINVAL);
+    if (rank < 1 || rank > MAX_RANK) return -EINVAL;
 
     // Mark pages as free
     size_t offset = (char *)p - (char *)base_addr;
@@ -175,9 +175,7 @@ void *return_pages(void *p) {
 
     allocated_blocks[rank]--;
 
-    // Return a pointer that can be interpreted as an error code
-    // This is a workaround for the test's incorrect usage of PTR_ERR
-    return (void *)OK;
+    return OK;
 }
 
 int query_ranks(void *p) {
