@@ -155,8 +155,6 @@ int return_pages(void *p) {
     if (rank < 1 || rank > MAX_RANK) return -EINVAL;
 
     // Mark pages as free
-    size_t offset = (char *)p - (char *)base_addr;
-    int page_idx = offset / PAGE_SIZE;
     int pages_in_block = 1 << (rank - 1);
     for (int i = 0; i < pages_in_block; i++) {
         page_allocation[page_idx + i] = 0;
