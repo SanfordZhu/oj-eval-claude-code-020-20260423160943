@@ -32,11 +32,14 @@ static void add_to_free_list(void *block, int rank) {
     if (!free_lists[rank]) {
         free_lists[rank] = fb;
     } else {
-        free_block_t *curr = free_lists[rank];
-        while (curr->next) {
-            curr = curr->next;
+        // Keep track of tail for O(1) append
+        static free_block_t *tails[MAX_RANK + 1] = {0};
+        if (tails[rank]) {
+            tails[rank]->next = fb;
+        } else {
+            free_lists[rank] = fb;
         }
-        curr->next = fb;
+        tails[rank] = fb;
     }
 }
 
@@ -65,9 +68,17 @@ int init_page(void *p, int pgcount) {
     }
 
     // Add all memory as individual pages (rank 1) initially
-    for (int i = 0; i < pgcount; i++) {
-        void *block = (char *)p + i * PAGE_SIZE;
-        add_to_free_list(block, 1);
+    // Process in reverse order to avoid traversing the list for each insertion
+    if (pgcount > 0) {
+        void *last_block = (char *)p + (pgcount - 1) * PAGE_SIZE;
+        add_to_free_list(last_block, 1);
+
+        for (int i = pgcount - 2; i >= 0; i--) {
+            void *block = (char *)p + i * PAGE_SIZE;
+            free_block_t *fb = (free_block_t *)block;
+            fb->next = free_lists[1];
+            free_lists[1] = fb;
+        }
     }
 
     return OK;
