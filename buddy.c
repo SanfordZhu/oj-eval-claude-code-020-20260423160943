@@ -138,6 +138,18 @@ void *alloc_pages(int rank) {
 int return_pages(void *p) {
     if (!p || !base_addr) return -EINVAL;
 
+    // Check if pointer is within bounds
+    size_t offset = (char *)p - (char *)base_addr;
+    if (offset >= total_pages * PAGE_SIZE || offset % PAGE_SIZE != 0) {
+        return -EINVAL;
+    }
+
+    // Check if page is already free
+    int page_idx = offset / PAGE_SIZE;
+    if (!page_allocation[page_idx]) {
+        return -EINVAL;  // Page is already free
+    }
+
     // Calculate the rank of this block
     int rank = query_ranks(p);
     if (rank < 1 || rank > MAX_RANK) return -EINVAL;
