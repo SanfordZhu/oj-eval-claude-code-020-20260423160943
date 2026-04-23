@@ -28,6 +28,9 @@ static int get_buddy(void *block, int rank) {
 // Static array to track tails of free lists for O(1) append
 static free_block_t *free_list_tails[MAX_RANK + 1] = {NULL};
 
+// Track counts for each rank
+static int free_counts[MAX_RANK + 1] = {0};
+
 static void add_to_free_list(void *block, int rank) {
     free_block_t *fb = (free_block_t *)block;
     fb->next = NULL;
@@ -39,6 +42,7 @@ static void add_to_free_list(void *block, int rank) {
         free_list_tails[rank]->next = fb;
         free_list_tails[rank] = fb;
     }
+    free_counts[rank]++;
 }
 
 static void *remove_from_free_list(int rank) {
@@ -51,6 +55,7 @@ static void *remove_from_free_list(int rank) {
         free_list_tails[rank] = NULL;
     }
 
+    free_counts[rank]--;
     return fb;
 }
 
@@ -213,6 +218,19 @@ int return_pages(void *p) {
 
     allocated_blocks[rank]--;
 
+    // Track free count changes during merging
+    // We added the original block back
+    int final_rank = current_rank;
+
+    // If we merged, we need to adjust counts
+    if (final_rank > rank) {
+        // We removed from lower ranks and added to higher rank
+        for (int r = rank; r < final_rank; r++) {
+            free_counts[r]--;
+        }
+        free_counts[final_rank]++;
+    }
+
     return OK;
 }
 
@@ -264,14 +282,5 @@ int query_ranks(void *p) {
 
 int query_page_counts(int rank) {
     if (rank < 1 || rank > MAX_RANK) return -EINVAL;
-
-    // Count blocks in free list
-    int count = 0;
-    free_block_t *curr = free_lists[rank];
-    while (curr) {
-        count++;
-        curr = curr->next;
-    }
-
-    return count;
+    return free_counts[rank];
 }
