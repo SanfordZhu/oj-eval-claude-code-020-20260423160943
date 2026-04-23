@@ -25,21 +25,19 @@ static int get_buddy(void *block, int rank) {
     return (buddy_offset < total_pages * PAGE_SIZE) ? buddy_offset : -1;
 }
 
+// Static array to track tails of free lists for O(1) append
+static free_block_t *free_list_tails[MAX_RANK + 1] = {NULL};
+
 static void add_to_free_list(void *block, int rank) {
     free_block_t *fb = (free_block_t *)block;
-    // Add to the end to maintain order
     fb->next = NULL;
+
     if (!free_lists[rank]) {
         free_lists[rank] = fb;
+        free_list_tails[rank] = fb;
     } else {
-        // Keep track of tail for O(1) append
-        static free_block_t *tails[MAX_RANK + 1] = {0};
-        if (tails[rank]) {
-            tails[rank]->next = fb;
-        } else {
-            free_lists[rank] = fb;
-        }
-        tails[rank] = fb;
+        free_list_tails[rank]->next = fb;
+        free_list_tails[rank] = fb;
     }
 }
 
@@ -47,6 +45,12 @@ static void *remove_from_free_list(int rank) {
     if (!free_lists[rank]) return NULL;
     free_block_t *fb = free_lists[rank];
     free_lists[rank] = fb->next;
+
+    // Update tail if necessary
+    if (free_lists[rank] == NULL) {
+        free_list_tails[rank] = NULL;
+    }
+
     return fb;
 }
 
@@ -178,6 +182,18 @@ int return_pages(void *p) {
 
         // Remove buddy from free list
         *prev = buddy->next;
+
+        // Update tail if we removed the last element
+        if (free_lists[current_rank] == NULL) {
+            free_list_tails[current_rank] = NULL;
+        } else if (buddy == free_list_tails[current_rank]) {
+            // Find new tail
+            free_block_t *new_tail = free_lists[current_rank];
+            while (new_tail->next) {
+                new_tail = new_tail->next;
+            }
+            free_list_tails[current_rank] = new_tail;
+        }
 
         // Remove current block from free list
         if (free_lists[current_rank] == (free_block_t *)current) {
